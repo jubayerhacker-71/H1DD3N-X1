@@ -8,91 +8,51 @@ module.exports = {
 		category: "events"
 	},
 
-	langs: {
-		vi: {
-			session1: "sáng",
-			session2: "trưa",
-			session3: "chiều",
-			session4: "tối",
-			leaveType1: "tự rời",
-			leaveType2: "bị kick",
-			defaultLeaveMessage: "{userName} đã {type} khỏi nhóm"
-		},
-		en: {
-			session1: "𝗠𝗢𝗥𝗡𝗜𝗡𝗚",
-			session2: "𝗡𝗢𝗢𝗡",
-			session3: "𝗔𝗙𝗧𝗘𝗥𝗡𝗢𝗢𝗡",
-			session4: "𝗘𝗩𝗘𝗡𝗜𝗡𝗚",
-			leaveType1: "𝗟𝗘𝗙𝗧",
-			leaveType2: "𝗪𝗔𝗦 𝗞𝗜𝗖𝗞𝗘𝗗 𝗙𝗥𝗢𝗠",
-			defaultLeaveMessage: "{userName} {type} 𝗧𝗛𝗘 𝗚𝗥𝗢𝗨𝗣"
-		}
-	},
+	module.exports.onLoad = function () {
+    const { existsSync, mkdirSync } = global.nodemodule["fs-extra"];
+    const { join } = global.nodemodule["path"];
 
-	onStart: async ({ threadsData, message, event, api, usersData, getLang }) => {
-		if (event.logMessageType == "log:unsubscribe")
-			return async function () {
-				const { threadID } = event;
-				const threadData = await threadsData.get(threadID);
-				if (!threadData.settings.sendLeaveMessage)
-					return;
-				const { leftParticipantFbId } = event.logMessageData;
-				if (leftParticipantFbId == api.getCurrentUserID())
-					return;
-				const hours = getTime("HH");
+  const path = join(__dirname, "cache", "leaveGif", "randomgif");
+  if (existsSync(path)) mkdirSync(path, { recursive: true });	
 
-				const threadName = threadData.threadName;
-				const userName = await usersData.getName(leftParticipantFbId);
+  const path2 = join(__dirname, "cache", "leaveGif", "randomgif");
+    if (!existsSync(path2)) mkdirSync(path2, { recursive: true });
 
-				// {userName}   : name of the user who left the group
-				// {type}       : type of the message (leave)
-				// {boxName}    : name of the box
-				// {threadName} : name of the box
-				// {time}       : time
-				// {session}    : session
+    return;
+}
 
-				let { leaveMessage = getLang("defaultLeaveMessage") } = threadData.data;
-				const form = {
-					mentions: leaveMessage.match(/\{userNameTag\}/g) ? [{
-						tag: userName,
-						id: leftParticipantFbId
-					}] : null
-				};
+module.exports.run = async function({ api, event, Users, Threads }) {
+  if (event.logMessageData.leftParticipantFbId == api.getCurrentUserID()) return;
+  const { createReadStream, existsSync, mkdirSync, readdirSync } = global.nodemodule["fs-extra"];
+  const { join } =  global.nodemodule["path"];
+  const { threadID } = event;
+  const moment = require("moment-timezone");
+  const time = moment.tz("Asia/Dhaka").format("DD/MM/YYYY || HH:mm:s");
+  const hours = moment.tz("Asia/Dhaka").format("HH");
+  const data = global.data.threadData.get(parseInt(threadID)) || (await Threads.getData(threadID)).data;
+  const name = global.data.userName.get(event.logMessageData.leftParticipantFbId) || await Users.getNameUser(event.logMessageData.leftParticipantFbId);
+  const type = (event.author == event.logMessageData.leftParticipantFbId) ? "leave" : "managed";
+  const path = join(__dirname, "events", "123.mp4");
+  const pathGif = join(path, `${threadID}123.mp4`);
+  var msg, formPush
 
-				leaveMessage = leaveMessage
-					.replace(/\{userName\}|\{userNameTag\}/g, userName)
-					.replace(/\{type\}/g, leftParticipantFbId == event.author ? getLang("leaveType1") : getLang("leaveType2"))
-					.replace(/\{threadName\}|\{boxName\}/g, threadName)
-					.replace(/\{time\}/g, hours)
-					.replace(/\{session\}/g, hours <= 10 ?
-						getLang("session1") :
-						hours <= 12 ?
-							getLang("session2") :
-							hours <= 18 ?
-								getLang("session3") :
-								getLang("session4")
-					);
+  if (existsSync(path)) mkdirSync(path, { recursive: true });
 
-				form.body = leaveMessage;
+(typeof data.customLeave == "undefined") ? msg = "•—»✨ {name} ✨«—•\n ╭•┄┅═══❁🌺❁═══┅┄•╮ \n         ｢ 𝗔𝗟𝗟𝗔𝗛𝗔𝗙𝗘𝗭 ｣     \n ╰•┄┅═══❁🌺❁═══┅┄•╯ \n  •—»✨       {type}  ✨«—•\n\n•—»✨ বড্ড ভুল করলে ✨«—•  \n\n•—»✨ {name} ✨«—•\n\nইসলামিক গ্রুপ থেকে বের হয়ে \n\n যে এই সুন্দর  ইসলামিক গ্রুপ ছেরে চলে গেছে তার অনুসরণ তুমরা করো নাহ__//💙🥺-!! {session} || {time}" : msg = data.customLeave;
+  msg = msg.replace(/\{name}/g, name).replace(/\{type}/g, type).replace(/\{session}/g, hours <= 10 ? "leave time" : 
+    hours > 10 && hours <= 12 ? "__" :
+    hours > 12 && hours <= 18 ? "__" : "__").replace(/\{time}/g, time);  
 
-				if (leaveMessage.includes("{userNameTag}")) {
-					form.mentions = [{
-						id: leftParticipantFbId,
-						tag: userName
-					}];
-				}
+  const randomPath = readdirSync(join(__dirname, "cache", "leaveGif", "randomgif"));
 
-				if (threadData.data.leaveAttachment) {
-					const files = threadData.data.leaveAttachment;
-					const attachments = files.reduce((acc, file) => {
-						acc.push(drive.getFile(file, "stream"));
-						return acc;
-					}, []);
-					form.attachment = (await Promise.allSettled(attachments))
-						.filter(({ status }) => status == "fulfilled")
-						.map(({ value }) => value);
-				}
-				message.send(form);
+  if (existsSync(pathGif)) formPush = { body: msg, attachment: createReadStream(pathGif) }
+  else if (randomPath.length != 0) {
+    const pathRandom = join(__dirname, "cache", "leaveGif", "randomgif",`${randomPath[Math.floor(Math.random() * randomPath.length)]}`);
+    formPush = { body: msg, attachment: createReadStream(pathRandom) }
+  }
+  else formPush = { body: msg }
+
+  return api.sendMessage(formPush, threadID);
 			};
 	}
 };
